@@ -17,7 +17,15 @@ const TodoContext = createContext<TodoContextType | undefined>(undefined);
 export function TodoProvider({ children }: { children: React.ReactNode }) {
   const [todos, setTodos] = useState<Todo[]>(() => {
     const saved = localStorage.getItem("todos");
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsedTodos = JSON.parse(saved);
+      // Ensure steps array exists for all todos
+      return parsedTodos.map((todo: Todo) => ({
+        ...todo,
+        steps: todo.steps || [],
+      }));
+    }
+    return [];
   });
   const { toast } = useToast();
 
@@ -33,7 +41,7 @@ export function TodoProvider({ children }: { children: React.ReactNode }) {
         completed: false,
         activity: activity as Todo["activity"],
         createdAt: Date.now(),
-        steps: [],
+        steps: [], // Initialize empty steps array
       },
       ...prev,
     ]);

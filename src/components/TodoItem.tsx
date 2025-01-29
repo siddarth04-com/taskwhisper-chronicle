@@ -25,6 +25,9 @@ export function TodoItem({ todo, onDelete, onToggle }: TodoItemProps) {
     }
   };
 
+  // Ensure steps is always an array
+  const steps = todo.steps || [];
+
   return (
     <div
       className={cn(
@@ -83,7 +86,7 @@ export function TodoItem({ todo, onDelete, onToggle }: TodoItemProps) {
 
       {/* Steps section */}
       <div className="ml-8 space-y-2">
-        {todo.steps.map((step) => (
+        {steps.map((step) => (
           <div key={step.id} className="flex items-center gap-2">
             <button
               onClick={() => toggleStep(todo.id, step.id)}
