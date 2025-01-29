@@ -4,7 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 
 interface TodoContextType {
   todos: Todo[];
-  addTodo: (text: string, tag?: string) => void;
+  addTodo: (text: string, activity: string) => void;
   deleteTodo: (id: string) => void;
   toggleTodo: (id: string) => void;
 }
@@ -22,13 +22,13 @@ export function TodoProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem("todos", JSON.stringify(todos));
   }, [todos]);
 
-  const addTodo = (text: string, tag?: string) => {
+  const addTodo = (text: string, activity: string) => {
     setTodos((prev) => [
       {
         id: crypto.randomUUID(),
         text,
         completed: false,
-        tag,
+        activity: activity as Todo["activity"],
         createdAt: Date.now(),
       },
       ...prev,

@@ -4,4 +4,5 @@ export interface Todo {
   completed: boolean;
   tag?: string;
   createdAt: number;
+  activity: "work" | "personal" | "shopping" | "health" | "other";
 }
