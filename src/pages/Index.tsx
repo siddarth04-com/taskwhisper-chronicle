@@ -1,13 +1,18 @@
-// Update this page (the content is just a fallback if you fail to update the page)
+import { TodoProvider } from "@/contexts/TodoContext";
+import { TodoList } from "@/components/TodoList";
 
 const Index = () => {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center">
-        <h1 className="text-4xl font-bold mb-4">Welcome to Your Blank App</h1>
-        <p className="text-xl text-gray-600">Start building your amazing project here!</p>
+    <TodoProvider>
+      <div className="min-h-screen bg-todo-background p-8">
+        <div className="mx-auto max-w-3xl">
+          <h1 className="mb-8 text-center text-4xl font-bold text-todo-primary">
+            Todo List
+          </h1>
+          <TodoList />
+        </div>
       </div>
-    </div>
+    </TodoProvider>
   );
 };
 
