@@ -34,7 +34,7 @@ export function AISettings() {
 
   const testAPIKey = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!apiService.getApiKey()) {
+    if (!aiService.getApiKey()) {
       toast({
         title: "Error",
         description: "Please save an API key first",
