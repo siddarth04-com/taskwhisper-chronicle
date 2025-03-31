@@ -1,7 +1,10 @@
+
 import { TodoProvider } from "@/contexts/TodoContext";
 import { TodoList } from "@/components/TodoList";
 import { TodoCalendar } from "@/components/TodoCalendar";
 import { AISettings } from "@/components/AISettings";
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
 
 const Index = () => {
   return (
@@ -12,7 +15,15 @@ const Index = () => {
             <h1 className="text-4xl font-bold text-todo-primary">
               Todo List
             </h1>
-            <AISettings />
+            <div className="flex items-center gap-4">
+              <Link to="/login">
+                <Button variant="outline" size="sm">Login</Button>
+              </Link>
+              <Link to="/signup">
+                <Button size="sm">Sign Up</Button>
+              </Link>
+              <AISettings />
+            </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="md:col-span-2">
