@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { aiService } from "@/utils/aiService";
 import { Loader2, BookOpen, Link, Headphones, HelpCircle } from "lucide-react";

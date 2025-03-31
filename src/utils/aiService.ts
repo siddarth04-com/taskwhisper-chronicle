@@ -14,7 +14,7 @@ export const aiService = {
 
   async suggestCategory(text: string): Promise<Todo['activity']> {
     const apiKey = aiService.getApiKey();
-    if (!apiKey) throw new Error('API key not set');
+    if (!apiKey) return 'other';
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -37,6 +37,11 @@ export const aiService = {
       });
 
       const data = await response.json();
+      if (data.error) {
+        console.error('OpenAI API Error:', data.error);
+        return 'other';
+      }
+      
       const category = data.choices[0].message.content.trim().toLowerCase();
       
       if (['work', 'personal', 'shopping', 'health', 'other'].includes(category)) {
@@ -51,7 +56,7 @@ export const aiService = {
 
   async suggestSteps(text: string): Promise<string[]> {
     const apiKey = aiService.getApiKey();
-    if (!apiKey) throw new Error('API key not set');
+    if (!apiKey) return [];
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -74,6 +79,11 @@ export const aiService = {
       });
 
       const data = await response.json();
+      if (data.error) {
+        console.error('OpenAI API Error:', data.error);
+        return [];
+      }
+      
       return data.choices[0].message.content
         .split('\n')
         .map(step => step.trim())
@@ -94,7 +104,13 @@ export const aiService = {
     }[];
   }> {
     const apiKey = aiService.getApiKey();
-    if (!apiKey) throw new Error('API key not set');
+    if (!apiKey) {
+      return {
+        suggestions: ["Set up your API key in AI Settings to get personalized suggestions."],
+        questions: [],
+        resources: [],
+      };
+    }
 
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -123,6 +139,15 @@ export const aiService = {
       });
 
       const data = await response.json();
+      if (data.error) {
+        console.error('OpenAI API Error:', data.error);
+        return {
+          suggestions: ["Error getting AI suggestions. Check your API key in AI Settings."],
+          questions: [],
+          resources: [],
+        };
+      }
+      
       const content = JSON.parse(data.choices[0].message.content);
       
       return {
@@ -133,7 +158,7 @@ export const aiService = {
     } catch (error) {
       console.error('Error getting task help:', error);
       return {
-        suggestions: ["No suggestions available. Try setting up your API key in AI Settings."],
+        suggestions: ["Error processing AI suggestions. Please try again later."],
         questions: [],
         resources: [],
       };
