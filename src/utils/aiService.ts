@@ -1,3 +1,4 @@
+
 import { Todo } from "@/types/todo";
 
 const API_KEY_STORAGE_KEY = 'openai_api_key_temp';
@@ -80,6 +81,62 @@ export const aiService = {
     } catch (error) {
       console.error('Error suggesting steps:', error);
       return [];
+    }
+  },
+
+  async getTaskHelp(taskText: string): Promise<{
+    suggestions: string[];
+    questions: string[];
+    resources: {
+      title: string;
+      link?: string;
+      description?: string;
+    }[];
+  }> {
+    const apiKey = aiService.getApiKey();
+    if (!apiKey) throw new Error('API key not set');
+
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'system',
+            content: `You are a helpful assistant for people working on tasks. For the given task, generate:
+            1. 2-3 helpful suggestions related to completing the task
+            2. 2-3 reflective questions that might help the user think about the task better
+            3. 2-4 resources (websites, apps, books, podcasts) that would be useful for the task
+            
+            Format your response as a JSON object with three properties: suggestions (array of strings), questions (array of strings), and resources (array of objects with title, link (optional), and description (optional) properties).`
+          }, {
+            role: 'user',
+            content: `I'm working on this task: "${taskText}". Please provide suggestions, questions, and resources.`
+          }],
+          max_tokens: 500,
+          response_format: { type: "json_object" }
+        }),
+      });
+
+      const data = await response.json();
+      const content = JSON.parse(data.choices[0].message.content);
+      
+      return {
+        suggestions: content.suggestions || [],
+        questions: content.questions || [],
+        resources: content.resources || [],
+      };
+    } catch (error) {
+      console.error('Error getting task help:', error);
+      return {
+        suggestions: ["No suggestions available. Try setting up your API key in AI Settings."],
+        questions: [],
+        resources: [],
+      };
     }
   }
 };

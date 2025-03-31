@@ -1,9 +1,11 @@
+
 import { Todo } from "@/types/todo";
 import { Trash2, CheckCircle2, Circle, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { Input } from "./ui/input";
 import { useTodo } from "@/contexts/TodoContext";
+import { TaskHelp } from "./TaskHelp";
 
 interface TodoItemProps {
   todo: Todo;
@@ -142,6 +144,9 @@ export function TodoItem({ todo, onDelete, onToggle }: TodoItemProps) {
           </button>
         )}
       </div>
+
+      {/* AI Task Help Section */}
+      {!todo.completed && <TaskHelp taskText={todo.text} />}
     </div>
   );
 }
