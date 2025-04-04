@@ -47,7 +47,7 @@ export const TodoProvider: React.FC<TodoProviderProps> = ({ children }) => {
       text,
       completed: false,
       createdAt: new Date().toISOString(),
-      activity,
+      activity: activity as "work" | "personal" | "shopping" | "health" | "other",
       steps: steps.map((stepText) => ({
         id: uuidv4(),
         text: stepText,
