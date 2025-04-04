@@ -40,8 +40,8 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
       const data = await aiService.getTaskHelp(taskText);
       setHelpData(data);
     } catch (err) {
+      console.error('Error getting AI task help:', err);
       setError("Failed to get AI suggestions. Please try again.");
-      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -79,7 +79,19 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
         </div>
       )}
 
-      {error && <p className="text-sm text-red-500">{error}</p>}
+      {error && (
+        <div className="text-sm text-red-500 flex items-center gap-2">
+          <span>{error}</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={() => setError(null)}
+            className="h-6 px-2"
+          >
+            Dismiss
+          </Button>
+        </div>
+      )}
 
       {helpData && !loading && (
         <Accordion type="single" collapsible className="w-full">

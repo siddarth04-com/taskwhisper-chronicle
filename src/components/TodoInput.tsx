@@ -14,7 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 interface TodoInputProps {
-  onAdd: (text: string, activity: string) => void;
+  onAdd: (text: string, activity: string, steps?: string[]) => void;
 }
 
 export function TodoInput({ onAdd }: TodoInputProps) {
@@ -31,18 +31,25 @@ export function TodoInput({ onAdd }: TodoInputProps) {
         if (aiService.getApiKey()) {
           // Get AI suggestion for category
           const suggestedCategory = await aiService.suggestCategory(text);
-          setActivity(suggestedCategory);
           
           // Get AI suggestions for steps
           const suggestedSteps = await aiService.suggestSteps(text);
           
-          // Add the todo with the suggested category
-          onAdd(text, suggestedCategory);
+          // Add the todo with the suggested category and steps
+          onAdd(text, suggestedCategory, suggestedSteps);
           
-          // Add suggested steps if any
+          // Show toast if we got steps
           if (suggestedSteps.length > 0) {
             toast({
-              description: "AI suggested steps have been added to your task",
+              description: `AI added ${suggestedSteps.length} suggested steps to your task`,
+              duration: 3000,
+            });
+          }
+          
+          // Show toast for category suggestion if different from default
+          if (suggestedCategory !== activity && suggestedCategory !== "other") {
+            toast({
+              description: `AI suggested category: ${suggestedCategory}`,
               duration: 3000,
             });
           }
