@@ -1,8 +1,7 @@
-
 import { Todo } from "@/types/todo";
 
 // Use a fixed API key instead of requiring user input
-const OPENAI_API_KEY = "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";
+const OPENAI_API_KEY = "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";
 
 export const aiService = {
   setApiKey: (key: string) => {
