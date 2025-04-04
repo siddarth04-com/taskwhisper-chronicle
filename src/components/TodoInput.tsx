@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,36 +27,30 @@ export function TodoInput({ onAdd }: TodoInputProps) {
     if (text.trim()) {
       setIsLoading(true);
       try {
-        if (aiService.getApiKey()) {
-          // Get AI suggestion for category
-          const suggestedCategory = await aiService.suggestCategory(text);
-          
-          // Get AI suggestions for steps
-          const suggestedSteps = await aiService.suggestSteps(text);
-          
-          // Add the todo with the suggested category and steps
-          onAdd(text, suggestedCategory, suggestedSteps);
-          
-          // Show toast if we got steps
-          if (suggestedSteps.length > 0) {
-            toast({
-              description: `AI added ${suggestedSteps.length} suggested steps to your task`,
-              duration: 3000,
-            });
-          }
-          
-          // Show toast for category suggestion if different from default
-          if (suggestedCategory !== activity && suggestedCategory !== "other") {
-            toast({
-              description: `AI suggested category: ${suggestedCategory}`,
-              duration: 3000,
-            });
-          }
-        } else {
-          // If no API key, just add the todo with selected category
-          onAdd(text, activity);
+        // Get AI suggestion for category
+        const suggestedCategory = await aiService.suggestCategory(text);
+        
+        // Get AI suggestions for steps
+        const suggestedSteps = await aiService.suggestSteps(text);
+        
+        // Add the todo with the suggested category and steps
+        onAdd(text, suggestedCategory, suggestedSteps);
+        
+        // Show toast if we got steps
+        if (suggestedSteps.length > 0) {
+          toast({
+            description: `AI added ${suggestedSteps.length} suggested steps to your task`,
+            duration: 3000,
+          });
         }
-        setText("");
+        
+        // Show toast for category suggestion if different from default
+        if (suggestedCategory !== activity && suggestedCategory !== "other") {
+          toast({
+            description: `AI suggested category: ${suggestedCategory}`,
+            duration: 3000,
+          });
+        }
       } catch (error) {
         console.error('Error processing AI suggestions:', error);
         toast({
@@ -69,6 +62,7 @@ export function TodoInput({ onAdd }: TodoInputProps) {
         onAdd(text, activity);
       } finally {
         setIsLoading(false);
+        setText("");
       }
     }
   };

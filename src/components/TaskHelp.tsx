@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { aiService } from "@/utils/aiService";
@@ -9,7 +8,6 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { cn } from "@/lib/utils";
 
 interface TaskHelpProps {
   taskText: string;
@@ -29,11 +27,6 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
   const [error, setError] = useState<string | null>(null);
 
   const getHelp = async () => {
-    if (!aiService.getApiKey()) {
-      setError("Please set your API key in AI Settings first.");
-      return;
-    }
-
     setLoading(true);
     setError(null);
     try {

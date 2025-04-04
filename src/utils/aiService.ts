@@ -1,27 +1,26 @@
 
 import { Todo } from "@/types/todo";
 
-const API_KEY_STORAGE_KEY = 'openai_api_key_temp';
+// Use a fixed API key instead of requiring user input
+const OPENAI_API_KEY = "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";
 
 export const aiService = {
   setApiKey: (key: string) => {
-    localStorage.setItem(API_KEY_STORAGE_KEY, key);
+    // Retain this method for backward compatibility
+    console.log("Custom API keys are no longer needed - using the provided API key");
   },
 
   getApiKey: () => {
-    return localStorage.getItem(API_KEY_STORAGE_KEY);
+    return OPENAI_API_KEY;
   },
 
   async suggestCategory(text: string): Promise<Todo['activity']> {
-    const apiKey = aiService.getApiKey();
-    if (!apiKey) return 'other';
-
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
@@ -55,15 +54,12 @@ export const aiService = {
   },
 
   async suggestSteps(text: string): Promise<string[]> {
-    const apiKey = aiService.getApiKey();
-    if (!apiKey) return [];
-
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
@@ -103,21 +99,12 @@ export const aiService = {
       description?: string;
     }[];
   }> {
-    const apiKey = aiService.getApiKey();
-    if (!apiKey) {
-      return {
-        suggestions: ["Set up your API key in AI Settings to get personalized suggestions."],
-        questions: [],
-        resources: [],
-      };
-    }
-
     try {
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
         },
         body: JSON.stringify({
           model: 'gpt-4o-mini',
@@ -142,7 +129,7 @@ export const aiService = {
       if (data.error) {
         console.error('OpenAI API Error:', data.error);
         return {
-          suggestions: ["Error getting AI suggestions. Check your API key in AI Settings."],
+          suggestions: ["Error getting AI suggestions. Please try again later."],
           questions: [],
           resources: [],
         };
