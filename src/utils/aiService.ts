@@ -16,6 +16,7 @@ export const aiService = {
 
   async suggestCategory(text: string): Promise<Todo['activity']> {
     try {
+      console.log("Suggesting category for:", text);
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -35,7 +36,15 @@ export const aiService = {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('OpenAI API Error:', errorData);
+        return 'other';
+      }
+      
       const data = await response.json();
+      console.log("Category suggestion response:", data);
+      
       if (data.error) {
         console.error('OpenAI API Error:', data.error);
         return 'other';
@@ -55,6 +64,7 @@ export const aiService = {
 
   async suggestSteps(text: string): Promise<string[]> {
     try {
+      console.log("Suggesting steps for:", text);
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -74,7 +84,15 @@ export const aiService = {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('OpenAI API Error Response:', errorData);
+        return [];
+      }
+      
       const data = await response.json();
+      console.log("Steps suggestion response:", data);
+      
       if (data.error) {
         console.error('OpenAI API Error:', data.error);
         return [];
@@ -100,6 +118,7 @@ export const aiService = {
     }[];
   }> {
     try {
+      console.log("Getting task help for:", taskText);
       const response = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -125,7 +144,19 @@ export const aiService = {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('OpenAI API Error Response:', errorData);
+        return {
+          suggestions: ["Error getting AI suggestions. Please try again later."],
+          questions: [],
+          resources: [],
+        };
+      }
+      
       const data = await response.json();
+      console.log("Task help response:", data);
+      
       if (data.error) {
         console.error('OpenAI API Error:', data.error);
         return {
@@ -135,13 +166,29 @@ export const aiService = {
         };
       }
       
-      const content = JSON.parse(data.choices[0].message.content);
-      
-      return {
-        suggestions: content.suggestions || [],
-        questions: content.questions || [],
-        resources: content.resources || [],
-      };
+      try {
+        const content = JSON.parse(data.choices[0].message.content);
+        
+        return {
+          suggestions: content.suggestions || [],
+          questions: content.questions || [],
+          resources: content.resources || [],
+        };
+      } catch (parseError) {
+        console.error('Error parsing JSON response:', parseError);
+        console.log('Raw response content:', data.choices[0].message.content);
+        
+        // Attempt to handle non-JSON responses
+        const rawContent = data.choices[0].message.content;
+        return {
+          suggestions: ["AI provided a response but it wasn't in the expected format."],
+          questions: [],
+          resources: [{
+            title: "Raw AI Response",
+            description: rawContent.substring(0, 200) + (rawContent.length > 200 ? "..." : "")
+          }],
+        };
+      }
     } catch (error) {
       console.error('Error getting task help:', error);
       return {

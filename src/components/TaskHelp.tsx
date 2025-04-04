@@ -1,13 +1,15 @@
+
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { aiService } from "@/utils/aiService";
-import { Loader2, BookOpen, Link, Headphones, HelpCircle } from "lucide-react";
+import { Loader2, BookOpen, Link, Headphones, HelpCircle, RefreshCw } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { useToast } from "@/hooks/use-toast";
 
 interface TaskHelpProps {
   taskText: string;
@@ -25,6 +27,7 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
     }[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const getHelp = async () => {
     setLoading(true);
@@ -32,9 +35,27 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
     try {
       const data = await aiService.getTaskHelp(taskText);
       setHelpData(data);
+      
+      // Check if there was an error in the response
+      if (data.suggestions.length === 1 && data.suggestions[0].includes("Error")) {
+        setError(data.suggestions[0]);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: data.suggestions[0],
+          duration: 5000,
+        });
+      }
     } catch (err) {
       console.error('Error getting AI task help:', err);
-      setError("Failed to get AI suggestions. Please try again.");
+      const errorMessage = "Failed to get AI suggestions. Please try again.";
+      setError(errorMessage);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: errorMessage,
+        duration: 5000,
+      });
     } finally {
       setLoading(false);
     }
@@ -49,6 +70,10 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
     } else {
       return <Link className="h-4 w-4" />;
     }
+  };
+
+  const handleRetry = () => {
+    getHelp();
   };
 
   return (
@@ -78,6 +103,14 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
           <Button 
             variant="ghost" 
             size="sm" 
+            onClick={handleRetry}
+            className="h-6 px-2 flex items-center gap-1"
+          >
+            <RefreshCw className="h-3 w-3" /> Retry
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
             onClick={() => setError(null)}
             className="h-6 px-2"
           >
@@ -86,7 +119,7 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
         </div>
       )}
 
-      {helpData && !loading && (
+      {helpData && !error && !loading && (
         <Accordion type="single" collapsible className="w-full">
           {helpData.suggestions.length > 0 && (
             <AccordionItem value="suggestions">
