@@ -28,11 +28,38 @@ export function TodoInput({ onAdd }: TodoInputProps) {
     if (text.trim()) {
       setIsLoading(true);
       try {
-        // Get AI suggestion for category
-        const suggestedCategory = await aiService.suggestCategory(text);
+        let suggestedCategory = activity;
+        let suggestedSteps: string[] = [];
         
-        // Get AI suggestions for steps
-        const suggestedSteps = await aiService.suggestSteps(text);
+        try {
+          // Get AI suggestion for category
+          suggestedCategory = await aiService.suggestCategory(text);
+        } catch (categoryError) {
+          console.error('Error suggesting category:', categoryError);
+          if (categoryError instanceof Error && categoryError.message.includes("quota exceeded")) {
+            toast({
+              variant: "destructive",
+              title: "API Quota Exceeded",
+              description: "AI features are temporarily unavailable. Adding task with selected category.",
+              duration: 5000,
+            });
+          }
+        }
+        
+        try {
+          // Get AI suggestions for steps
+          suggestedSteps = await aiService.suggestSteps(text);
+        } catch (stepsError) {
+          console.error('Error suggesting steps:', stepsError);
+          if (stepsError instanceof Error && !stepsError.message.includes("quota exceeded")) {
+            toast({
+              variant: "destructive",
+              title: "Error",
+              description: "Failed to get AI step suggestions. Adding task with basic details.",
+              duration: 3000,
+            });
+          }
+        }
         
         // Add the todo with the suggested category and steps
         onAdd(text, suggestedCategory, suggestedSteps);
@@ -54,10 +81,16 @@ export function TodoInput({ onAdd }: TodoInputProps) {
         }
       } catch (error) {
         console.error('Error processing AI suggestions:', error);
+        let errorMessage = "Failed to get AI suggestions. Adding task with selected category.";
+        
+        if (error instanceof Error && error.message.includes("quota exceeded")) {
+          errorMessage = "AI quota exceeded. Adding task with selected category.";
+        }
+        
         toast({
           variant: "destructive",
           title: "Error",
-          description: "Failed to get AI suggestions. Adding task with selected category.",
+          description: errorMessage,
           duration: 3000,
         });
         onAdd(text, activity);

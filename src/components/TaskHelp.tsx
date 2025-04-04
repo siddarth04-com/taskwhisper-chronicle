@@ -2,7 +2,7 @@
 import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { aiService } from "@/utils/aiService";
-import { Loader2, BookOpen, Link, Headphones, HelpCircle, RefreshCw } from "lucide-react";
+import { Loader2, BookOpen, Link, Headphones, HelpCircle, RefreshCw, AlertTriangle } from "lucide-react";
 import {
   Accordion,
   AccordionContent,
@@ -27,32 +27,52 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
     }[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState(false);
   const { toast } = useToast();
 
   const getHelp = async () => {
     setLoading(true);
     setError(null);
+    setIsQuotaExceeded(false);
+    
     try {
       const data = await aiService.getTaskHelp(taskText);
       setHelpData(data);
       
       // Check if there was an error in the response
-      if (data.suggestions.length === 1 && data.suggestions[0].includes("Error")) {
-        setError(data.suggestions[0]);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: data.suggestions[0],
-          duration: 5000,
-        });
+      if (data.suggestions.length === 1) {
+        const errorMsg = data.suggestions[0];
+        
+        if (errorMsg.includes("Error") || errorMsg.includes("quota exceeded")) {
+          if (errorMsg.includes("quota exceeded")) {
+            setIsQuotaExceeded(true);
+          }
+          
+          setError(errorMsg);
+          toast({
+            variant: "destructive",
+            title: errorMsg.includes("quota exceeded") ? "API Quota Exceeded" : "Error",
+            description: errorMsg,
+            duration: 5000,
+          });
+        }
       }
     } catch (err) {
       console.error('Error getting AI task help:', err);
-      const errorMessage = "Failed to get AI suggestions. Please try again.";
+      let errorMessage = "Failed to get AI suggestions. Please try again.";
+      
+      if (err instanceof Error) {
+        errorMessage = err.message;
+        if (err.message.includes("quota exceeded")) {
+          setIsQuotaExceeded(true);
+          errorMessage = "AI quota exceeded. Please try again later or contact support.";
+        }
+      }
+      
       setError(errorMessage);
       toast({
         variant: "destructive",
-        title: "Error",
+        title: isQuotaExceeded ? "API Quota Exceeded" : "Error",
         description: errorMessage,
         duration: 5000,
       });
@@ -78,7 +98,7 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
 
   return (
     <div className="mt-4 border-t pt-3">
-      {!helpData && !loading && (
+      {!helpData && !loading && !error && (
         <Button
           variant="outline"
           size="sm"
@@ -98,16 +118,19 @@ export function TaskHelp({ taskText }: TaskHelpProps) {
       )}
 
       {error && (
-        <div className="text-sm text-red-500 flex items-center gap-2">
-          <span>{error}</span>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleRetry}
-            className="h-6 px-2 flex items-center gap-1"
-          >
-            <RefreshCw className="h-3 w-3" /> Retry
-          </Button>
+        <div className="text-sm text-red-500 flex items-center gap-2 p-2 bg-red-50 rounded-md">
+          <AlertTriangle className="h-4 w-4" />
+          <span className="flex-1">{error}</span>
+          {!isQuotaExceeded && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleRetry}
+              className="h-6 px-2 flex items-center gap-1"
+            >
+              <RefreshCw className="h-3 w-3" /> Retry
+            </Button>
+          )}
           <Button 
             variant="ghost" 
             size="sm" 

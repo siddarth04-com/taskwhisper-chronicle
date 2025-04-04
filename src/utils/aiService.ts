@@ -39,6 +39,12 @@ export const aiService = {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('OpenAI API Error:', errorData);
+
+        // Check specifically for quota exceeded error
+        if (errorData.error?.code === "insufficient_quota") {
+          throw new Error("API quota exceeded. Please try again later or contact support.");
+        }
+        
         return 'other';
       }
       
@@ -87,6 +93,12 @@ export const aiService = {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('OpenAI API Error Response:', errorData);
+        
+        // Check specifically for quota exceeded error
+        if (errorData.error?.code === "insufficient_quota") {
+          throw new Error("API quota exceeded. Please try again later or contact support.");
+        }
+        
         return [];
       }
       
@@ -104,7 +116,7 @@ export const aiService = {
         .filter(step => step.length > 0);
     } catch (error) {
       console.error('Error suggesting steps:', error);
-      return [];
+      throw error; // Propagate error to caller
     }
   },
 
@@ -147,6 +159,12 @@ export const aiService = {
       if (!response.ok) {
         const errorData = await response.json();
         console.error('OpenAI API Error Response:', errorData);
+        
+        // Check specifically for quota exceeded error
+        if (errorData.error?.code === "insufficient_quota") {
+          throw new Error("API quota exceeded. Please try again later or contact support.");
+        }
+        
         return {
           suggestions: ["Error getting AI suggestions. Please try again later."],
           questions: [],
@@ -191,6 +209,13 @@ export const aiService = {
       }
     } catch (error) {
       console.error('Error getting task help:', error);
+      if (error instanceof Error) {
+        return {
+          suggestions: [error.message],
+          questions: [],
+          resources: [],
+        };
+      }
       return {
         suggestions: ["Error processing AI suggestions. Please try again later."],
         questions: [],
