@@ -21,7 +21,8 @@ import {
   HelpCircle,
   Lightbulb,
   MessageSquare,
-  ExternalLink
+  ExternalLink,
+  Search
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -42,8 +43,8 @@ interface Todo {
   steps: Step[];
 }
 
-// AI Service
-const OPENAI_API_KEY = "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";
+// AI Service with new API key
+const OPENAI_API_KEY = "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";
 
 const aiService = {
   async suggestCategory(text: string): Promise<Todo['activity']> {
@@ -210,6 +211,33 @@ const TodoContext = createContext<TodoContextType>({
 
 const useTodo = (): TodoContextType => useContext(TodoContext);
 
+// Category colors and icons
+const getCategoryColor = (activity: string) => {
+  switch (activity) {
+    case 'work':
+      return 'bg-blue-500';
+    case 'personal':
+      return 'bg-purple-500';
+    case 'health':
+      return 'bg-green-500';
+    default:
+      return 'bg-gray-500';
+  }
+};
+
+const getCategoryIcon = (activity: string) => {
+  switch (activity) {
+    case 'work':
+      return '💼';
+    case 'personal':
+      return '👤';
+    case 'health':
+      return '🏥';
+    default:
+      return '📋';
+  }
+};
+
 // Components
 const TodoInput = ({ onAdd }: { onAdd: (text: string, activity: string, steps?: string[]) => void }) => {
   const [text, setText] = useState("");
@@ -269,29 +297,41 @@ const TodoInput = ({ onAdd }: { onAdd: (text: string, activity: string, steps?: 
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
-      <Input
-        type="text"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-        placeholder="Add a new todo..."
-        className="flex-1"
-      />
-      <Select value={activity} onValueChange={setActivity}>
-        <SelectTrigger className="w-[150px]">
-          <SelectValue placeholder="Activity" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="work">Work</SelectItem>
-          <SelectItem value="personal">Personal</SelectItem>
-          <SelectItem value="health">Health</SelectItem>
-          <SelectItem value="other">Other</SelectItem>
-        </SelectContent>
-      </Select>
-      <Button type="submit" disabled={isLoading}>
-        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
-      </Button>
-    </form>
+    <div className="mb-6">
+      <div className="relative mb-4">
+        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+        <Input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Search Context"
+          className="pl-10 bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+        />
+      </div>
+      <form onSubmit={handleSubmit} className="flex gap-2">
+        <Input
+          type="text"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="Add a new task..."
+          className="flex-1 bg-gray-800 border-gray-700 text-white placeholder-gray-400"
+        />
+        <Select value={activity} onValueChange={setActivity}>
+          <SelectTrigger className="w-[150px] bg-gray-800 border-gray-700 text-white">
+            <SelectValue placeholder="Category" />
+          </SelectTrigger>
+          <SelectContent className="bg-gray-800 border-gray-700">
+            <SelectItem value="work" className="text-white hover:bg-gray-700">Work</SelectItem>
+            <SelectItem value="personal" className="text-white hover:bg-gray-700">Personal</SelectItem>
+            <SelectItem value="health" className="text-white hover:bg-gray-700">Health</SelectItem>
+            <SelectItem value="other" className="text-white hover:bg-gray-700">Other</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700">
+          {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+        </Button>
+      </form>
+    </div>
   );
 };
 
@@ -328,36 +368,36 @@ const TaskHelp = ({ taskText }: { taskText: string }) => {
         <Button
           variant="ghost"
           size="sm"
-          className="text-blue-600 hover:text-blue-800"
+          className="text-blue-400 hover:text-blue-300 hover:bg-gray-700"
           onClick={fetchHelp}
         >
           <HelpCircle className="h-4 w-4 mr-1" />
           Get AI Help
         </Button>
       </SheetTrigger>
-      <SheetContent className="w-[400px] sm:w-[540px]">
+      <SheetContent className="w-[400px] sm:w-[540px] bg-gray-900 border-gray-700 text-white">
         <SheetHeader>
-          <SheetTitle>AI Task Help</SheetTitle>
-          <SheetDescription>
+          <SheetTitle className="text-white">AI Task Help</SheetTitle>
+          <SheetDescription className="text-gray-300">
             Get suggestions, questions, and resources for: "{taskText}"
           </SheetDescription>
         </SheetHeader>
 
         {isLoading ? (
           <div className="flex items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin" />
+            <Loader2 className="h-8 w-8 animate-spin text-blue-400" />
           </div>
         ) : help ? (
           <div className="mt-6 space-y-6">
             {help.suggestions.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <Lightbulb className="h-4 w-4 text-yellow-500" />
-                  <h3 className="font-semibold">Suggestions</h3>
+                  <Lightbulb className="h-4 w-4 text-yellow-400" />
+                  <h3 className="font-semibold text-white">Suggestions</h3>
                 </div>
                 <ul className="space-y-2">
                   {help.suggestions.map((suggestion, index) => (
-                    <li key={index} className="text-sm text-gray-700 pl-4 border-l-2 border-yellow-200">
+                    <li key={index} className="text-sm text-gray-300 pl-4 border-l-2 border-yellow-400">
                       {suggestion}
                     </li>
                   ))}
@@ -368,12 +408,12 @@ const TaskHelp = ({ taskText }: { taskText: string }) => {
             {help.questions.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <MessageSquare className="h-4 w-4 text-blue-500" />
-                  <h3 className="font-semibold">Questions to Consider</h3>
+                  <MessageSquare className="h-4 w-4 text-blue-400" />
+                  <h3 className="font-semibold text-white">Questions to Consider</h3>
                 </div>
                 <ul className="space-y-2">
                   {help.questions.map((question, index) => (
-                    <li key={index} className="text-sm text-gray-700 pl-4 border-l-2 border-blue-200">
+                    <li key={index} className="text-sm text-gray-300 pl-4 border-l-2 border-blue-400">
                       {question}
                     </li>
                   ))}
@@ -384,22 +424,22 @@ const TaskHelp = ({ taskText }: { taskText: string }) => {
             {help.resources.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
-                  <ExternalLink className="h-4 w-4 text-green-500" />
-                  <h3 className="font-semibold">Helpful Resources</h3>
+                  <ExternalLink className="h-4 w-4 text-green-400" />
+                  <h3 className="font-semibold text-white">Helpful Resources</h3>
                 </div>
                 <ul className="space-y-3">
                   {help.resources.map((resource, index) => (
-                    <li key={index} className="text-sm pl-4 border-l-2 border-green-200">
-                      <div className="font-medium text-gray-900">{resource.title}</div>
+                    <li key={index} className="text-sm pl-4 border-l-2 border-green-400">
+                      <div className="font-medium text-white">{resource.title}</div>
                       {resource.description && (
-                        <div className="text-gray-600 mt-1">{resource.description}</div>
+                        <div className="text-gray-300 mt-1">{resource.description}</div>
                       )}
                       {resource.link && (
                         <a
                           href={resource.link}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-blue-600 hover:underline text-xs mt-1 inline-block"
+                          className="text-blue-400 hover:underline text-xs mt-1 inline-block"
                         >
                           Visit resource →
                         </a>
@@ -411,12 +451,31 @@ const TaskHelp = ({ taskText }: { taskText: string }) => {
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-center py-8 text-gray-500">
+          <div className="flex items-center justify-center py-8 text-gray-400">
             Click "Get AI Help" to fetch suggestions
           </div>
         )}
       </SheetContent>
     </Sheet>
+  );
+};
+
+const CategoryCard = ({ activity, count }: { activity: string; count: number }) => {
+  const colorClass = getCategoryColor(activity);
+  const icon = getCategoryIcon(activity);
+  
+  return (
+    <div className="bg-gray-800 rounded-2xl p-4 border border-gray-700">
+      <div className="flex items-center gap-3">
+        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-lg", colorClass)}>
+          {icon}
+        </div>
+        <div>
+          <h3 className="text-white font-medium capitalize">{activity}</h3>
+          <p className="text-gray-400 text-sm">+{count} Task</p>
+        </div>
+      </div>
+    </div>
   );
 };
 
@@ -439,121 +498,130 @@ const TodoItem = ({ todo, onDelete, onToggle }: {
   };
 
   const steps = todo.steps || [];
+  const completedSteps = steps.filter(step => step.completed).length;
 
   return (
-    <div
-      className={cn(
-        "group flex flex-col gap-3 rounded-lg border p-4 transition-all hover:border-blue-300",
-        "animate-fadeIn",
-        todo.completed && "bg-gray-50"
-      )}
-    >
-      <div className="flex items-center gap-3">
+    <div className="bg-gray-800 rounded-xl p-4 border border-gray-700 hover:border-gray-600 transition-all">
+      <div className="flex items-start gap-3">
         <button
           onClick={() => onToggle(todo.id)}
-          className="flex items-center justify-center transition-colors"
+          className="flex items-center justify-center transition-colors mt-1"
         >
           {todo.completed ? (
-            <CheckCircle2 className="h-6 w-6 text-green-500" />
+            <CheckCircle2 className="h-5 w-5 text-green-400" />
           ) : (
-            <Circle className="h-6 w-6 text-gray-400 hover:text-blue-500" />
+            <Circle className="h-5 w-5 text-gray-400 hover:text-blue-400" />
           )}
         </button>
-        <div className="flex-1 space-y-1">
-          <span
-            className={cn(
-              "block text-lg transition-all",
-              todo.completed && "text-gray-400 line-through"
+        
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-lg">{getCategoryIcon(todo.activity)}</span>
+            <span
+              className={cn(
+                "text-white font-medium",
+                todo.completed && "text-gray-400 line-through"
+              )}
+            >
+              {todo.text}
+            </span>
+          </div>
+          
+          {steps.length > 0 && (
+            <div className="text-sm text-gray-400 mb-2">
+              {completedSteps} Completed
+            </div>
+          )}
+          
+          <div className="flex items-center gap-2 text-xs text-gray-500">
+            <span>{completedSteps}/{steps.length + completedSteps}</span>
+            {steps.length > 0 && (
+              <div className="flex-1 bg-gray-700 rounded-full h-1">
+                <div 
+                  className="bg-blue-400 h-1 rounded-full transition-all"
+                  style={{ width: `${steps.length > 0 ? (completedSteps / steps.length) * 100 : 0}%` }}
+                />
+              </div>
             )}
-          >
-            {todo.text}
-          </span>
-          <span className="text-sm text-gray-500">
-            Added {new Date(todo.createdAt).toLocaleDateString()}
-          </span>
+          </div>
         </div>
-        {todo.activity && (
-          <span 
-            className={cn(
-              "rounded-full px-3 py-1 text-sm",
-              {
-                'bg-blue-100 text-blue-700': todo.activity === 'work',
-                'bg-purple-100 text-purple-700': todo.activity === 'personal',
-                'bg-green-100 text-green-700': todo.activity === 'health',
-                'bg-gray-100 text-gray-700': todo.activity === 'other'
-              }
-            )}
-          >
-            {todo.activity}
-          </span>
-        )}
+        
         <button
           onClick={() => onDelete(todo.id)}
-          className="opacity-0 transition-opacity group-hover:opacity-100"
+          className="text-gray-400 hover:text-red-400 transition-colors"
         >
-          <Trash2 className="h-5 w-5 text-red-500" />
+          <Trash2 className="h-4 w-4" />
         </button>
       </div>
 
-      <div className="ml-8 space-y-2">
-        {steps.map((step) => (
-          <div key={step.id} className="flex items-center gap-2">
-            <button
-              onClick={() => toggleStep(todo.id, step.id)}
-              className="flex items-center justify-center transition-colors"
-            >
-              {step.completed ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              ) : (
-                <Circle className="h-4 w-4 text-gray-400 hover:text-blue-500" />
-              )}
-            </button>
-            <span
-              className={cn(
-                "text-sm",
-                step.completed && "text-gray-400 line-through"
-              )}
-            >
-              {step.text}
-            </span>
-            <button
-              onClick={() => deleteStep(todo.id, step.id)}
-              className="ml-auto opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              <X className="h-4 w-4 text-red-500" />
-            </button>
-          </div>
-        ))}
+      {/* Steps section */}
+      {steps.length > 0 && (
+        <div className="mt-4 ml-8 space-y-2">
+          {steps.map((step) => (
+            <div key={step.id} className="flex items-center gap-2">
+              <button
+                onClick={() => toggleStep(todo.id, step.id)}
+                className="flex items-center justify-center transition-colors"
+              >
+                {step.completed ? (
+                  <CheckCircle2 className="h-3 w-3 text-green-400" />
+                ) : (
+                  <Circle className="h-3 w-3 text-gray-400 hover:text-blue-400" />
+                )}
+              </button>
+              <span
+                className={cn(
+                  "text-sm text-gray-300",
+                  step.completed && "text-gray-500 line-through"
+                )}
+              >
+                {step.text}
+              </span>
+              <button
+                onClick={() => deleteStep(todo.id, step.id)}
+                className="ml-auto text-gray-500 hover:text-red-400 transition-colors"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
-        {showStepInput ? (
-          <form onSubmit={handleAddStep} className="flex items-center gap-2">
-            <Input
-              type="text"
-              value={newStep}
-              onChange={(e) => setNewStep(e.target.value)}
-              placeholder="Add a step..."
-              className="h-8 text-sm"
-              autoFocus
-            />
-            <button
-              type="button"
-              onClick={() => setShowStepInput(false)}
-              className="text-gray-500 hover:text-gray-700"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </form>
-        ) : (
+      {showStepInput && (
+        <form onSubmit={handleAddStep} className="mt-3 ml-8 flex items-center gap-2">
+          <Input
+            type="text"
+            value={newStep}
+            onChange={(e) => setNewStep(e.target.value)}
+            placeholder="Add a step..."
+            className="h-8 text-sm bg-gray-700 border-gray-600 text-white"
+            autoFocus
+          />
           <button
-            onClick={() => setShowStepInput(true)}
-            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+            type="button"
+            onClick={() => setShowStepInput(false)}
+            className="text-gray-400 hover:text-gray-300"
           >
-            <Plus className="h-4 w-4" /> Add step
+            <X className="h-4 w-4" />
           </button>
-        )}
-      </div>
+        </form>
+      )}
 
-      {!todo.completed && <TaskHelp taskText={todo.text} />}
+      {!showStepInput && (
+        <button
+          onClick={() => setShowStepInput(true)}
+          className="mt-3 ml-8 flex items-center gap-1 text-sm text-gray-400 hover:text-gray-300"
+        >
+          <Plus className="h-4 w-4" /> Add step
+        </button>
+      )}
+
+      {!todo.completed && (
+        <div className="mt-3">
+          <TaskHelp taskText={todo.text} />
+        </div>
+      )}
     </div>
   );
 };
@@ -566,29 +634,43 @@ const TodoCalendar = () => {
     return todoDate === today;
   });
 
+  const currentTodo = todaysTodos.find(todo => !todo.completed);
+
   return (
-    <div className="rounded-lg border p-4">
-      <div className="flex items-center gap-2 mb-4">
-        <CalendarIcon className="h-5 w-5 text-blue-500" />
-        <h2 className="text-xl font-semibold">Today's Tasks</h2>
+    <div className="bg-gray-800 rounded-xl p-6 border border-gray-700">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-xl font-bold text-white">Design</h2>
+          <p className="text-gray-400 text-sm">Assign</p>
+        </div>
+        <div className="text-right">
+          <p className="text-white text-sm">{todaysTodos.length} Remaining</p>
+          <p className="text-gray-400 text-xs">Due Date</p>
+          <p className="text-white text-xs">Fri, 25 Dec</p>
+        </div>
       </div>
-      <div className="space-y-2">
-        {todaysTodos.length === 0 ? (
-          <p className="text-gray-500 text-sm">No tasks for today</p>
-        ) : (
-          todaysTodos.map((todo) => (
-            <div key={todo.id} className="flex items-center gap-2 text-sm">
-              {todo.completed ? (
-                <CheckCircle2 className="h-4 w-4 text-green-500" />
-              ) : (
-                <Circle className="h-4 w-4 text-gray-400" />
-              )}
-              <span className={cn(todo.completed && "line-through text-gray-400")}>
-                {todo.text}
-              </span>
-            </div>
-          ))
-        )}
+
+      {currentTodo && (
+        <div className="mb-6">
+          <h3 className="text-white font-medium mb-4">{currentTodo.text}</h3>
+          <div className="space-y-2">
+            {currentTodo.steps?.slice(0, 4).map((step, index) => (
+              <div key={step.id} className="flex items-center gap-2">
+                <Circle className="h-3 w-3 text-gray-400" />
+                <span className="text-gray-300 text-sm">{step.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="mb-4">
+        <p className="text-gray-400 text-sm mb-2">Attachment</p>
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-gradient-to-br from-pink-400 to-orange-400 rounded-lg h-16"></div>
+          <div className="bg-gradient-to-br from-purple-400 to-blue-400 rounded-lg h-16"></div>
+          <div className="bg-gradient-to-br from-green-400 to-blue-400 rounded-lg h-16"></div>
+        </div>
       </div>
     </div>
   );
@@ -700,26 +782,55 @@ const TodoProvider = ({ children }: { children: React.ReactNode }) => {
 
 const TodoList = () => {
   const { todos, addTodo, deleteTodo, toggleTodo } = useTodo();
+  
+  // Group todos by category for stats
+  const todosByCategory = todos.reduce((acc, todo) => {
+    acc[todo.activity] = (acc[todo.activity] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
 
   return (
     <div>
-      <TodoInput onAdd={addTodo} />
-      <div className="space-y-4">
-        {todos.length === 0 ? (
-          <div className="text-center text-gray-500">
-            <p className="text-xl">No todos yet!</p>
-            <p>Add a new todo to get started</p>
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-2xl">😊</span>
+          <div>
+            <h1 className="text-white text-2xl font-bold">Welcome</h1>
+            <p className="text-gray-400">Manage your task very easily!</p>
           </div>
-        ) : (
-          todos.map((todo) => (
-            <TodoItem
-              key={todo.id}
-              todo={todo}
-              onDelete={deleteTodo}
-              onToggle={toggleTodo}
-            />
-          ))
-        )}
+        </div>
+        
+        <TodoInput onAdd={addTodo} />
+        
+        <div className="mb-6">
+          <h2 className="text-white text-lg font-semibold mb-4">Category</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <CategoryCard activity="work" count={todosByCategory.work || 0} />
+            <CategoryCard activity="personal" count={todosByCategory.personal || 0} />
+            <CategoryCard activity="health" count={todosByCategory.health || 0} />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-white text-lg font-semibold mb-4">Today's Task</h2>
+        <div className="space-y-4">
+          {todos.length === 0 ? (
+            <div className="text-center text-gray-400 py-8">
+              <p className="text-xl">No tasks yet!</p>
+              <p>Add a new task to get started</p>
+            </div>
+          ) : (
+            todos.map((todo) => (
+              <TodoItem
+                key={todo.id}
+                todo={todo}
+                onDelete={deleteTodo}
+                onToggle={toggleTodo}
+              />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -732,15 +843,10 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <TodoProvider>
-          <div className="min-h-screen bg-gray-50 p-8">
-            <div className="mx-auto max-w-6xl">
-              <div className="flex justify-between items-center mb-8">
-                <h1 className="text-4xl font-bold text-blue-600">
-                  Todo List
-                </h1>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-2">
+          <div className="min-h-screen bg-gray-900 p-8">
+            <div className="mx-auto max-w-7xl">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2">
                   <TodoList />
                 </div>
                 <div>
