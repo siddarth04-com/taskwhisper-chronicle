@@ -1,4 +1,3 @@
-
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { v4 as uuidv4 } from "uuid";
@@ -22,7 +21,9 @@ import {
   Send,
   Bot,
   User,
-  Search
+  Search,
+  RefreshCw,
+  AlertCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,30 +31,48 @@ import { cn } from "@/lib/utils";
 const ANTHROPIC_API_KEY = "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";
 
 const aiService = {
+  async makeAnthropicRequest(messages, systemPrompt = "", maxTokens = 300) {
+    const requestBody = {
+      model: 'claude-3-5-haiku-20241022',
+      max_tokens: maxTokens,
+      messages: messages,
+      temperature: 0.7
+    };
+
+    if (systemPrompt) {
+      requestBody.system = systemPrompt;
+    }
+
+    console.log('Making Anthropic API request:', requestBody);
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${ANTHROPIC_API_KEY}`,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Anthropic API error:', response.status, errorData);
+      throw new Error(`API request failed: ${response.status} - ${errorData}`);
+    }
+    
+    const data = await response.json();
+    console.log('Anthropic API response:', data);
+    return data;
+  },
+
   async suggestCategory(text) {
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${ANTHROPIC_API_KEY}`,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 10,
-          messages: [{
-            role: 'user',
-            content: `Categorize this task into one of these categories: work, personal, health, other. Just respond with the category name in lowercase: "${text}"`
-          }],
-        }),
-      });
-
-      if (!response.ok) {
-        return 'other';
-      }
+      const data = await this.makeAnthropicRequest([{
+        role: 'user',
+        content: `Categorize this task into one of these categories: work, personal, health, other. Just respond with the category name in lowercase: "${text}"`
+      }], "", 10);
       
-      const data = await response.json();
       const category = data.content[0].text.trim().toLowerCase();
       
       if (['work', 'personal', 'health', 'other'].includes(category)) {
@@ -68,28 +87,10 @@ const aiService = {
 
   async suggestSteps(text) {
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${ANTHROPIC_API_KEY}`,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 150,
-          messages: [{
-            role: 'user',
-            content: `Break down this task into 2-4 concrete steps. Respond with just the steps, one per line: "${text}"`
-          }],
-        }),
-      });
-
-      if (!response.ok) {
-        return [];
-      }
-      
-      const data = await response.json();
+      const data = await this.makeAnthropicRequest([{
+        role: 'user',
+        content: `Break down this task into 2-4 concrete steps. Respond with just the steps, one per line: "${text}"`
+      }], "", 150);
       
       return data.content[0].text
         .split('\n')
@@ -103,36 +104,18 @@ const aiService = {
 
   async getChatResponse(taskText, messages) {
     try {
-      const contextPrompt = `You are a helpful AI assistant helping someone with their task: "${taskText}". 
+      const systemPrompt = `You are a helpful AI assistant helping someone with their task: "${taskText}". 
       
-      Provide helpful, practical advice and suggestions. Be conversational and supportive. 
-      Keep responses concise but informative. Focus on actionable advice related to completing this specific task.`;
+Provide helpful, practical advice and suggestions. Be conversational and supportive. 
+Keep responses concise but informative. Focus on actionable advice related to completing this specific task.
+Be encouraging and provide specific next steps when possible.`;
       
       const conversationHistory = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.content
       }));
 
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${ANTHROPIC_API_KEY}`,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-3-haiku-20240307',
-          max_tokens: 300,
-          system: contextPrompt,
-          messages: conversationHistory,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to get AI response');
-      }
-      
-      const data = await response.json();
+      const data = await this.makeAnthropicRequest(conversationHistory, systemPrompt, 400);
       return data.content[0].text;
     } catch (error) {
       console.error('Error getting AI chat response:', error);
@@ -282,13 +265,17 @@ const ChatbotInterface = ({ taskText, isOpen, onClose }) => {
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
 
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       setMessages([{
         role: 'assistant',
-        content: `Hi! I'm here to help you with your task: "${taskText}". What would you like to know or discuss about this task?`
+        content: `Hi! I'm here to help you with your task: "${taskText}". 
+
+I can provide specific advice, break down complex steps, suggest resources, or help you overcome any challenges you're facing. What would you like to know or discuss about this task?`
       }]);
     }
   }, [isOpen, taskText, messages.length]);
@@ -302,19 +289,47 @@ const ChatbotInterface = ({ taskText, isOpen, onClose }) => {
     setMessages(newMessages);
     setInputMessage("");
     setIsLoading(true);
+    setError(null);
 
     try {
       const response = await aiService.getChatResponse(taskText, newMessages);
       setMessages([...newMessages, { role: 'assistant', content: response }]);
+      setRetryCount(0);
     } catch (error) {
       console.error('Error getting chat response:', error);
+      setError('Failed to get AI response. Please try again.');
+      setRetryCount(prev => prev + 1);
+      
       toast({
         variant: "destructive",
-        title: "Error",
-        description: "Failed to get AI response. Please try again.",
+        title: "Connection Error",
+        description: "Failed to get AI response. Please check your connection and try again.",
+        duration: 5000,
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleRetry = async () => {
+    if (messages.length > 0) {
+      const lastUserMessage = messages[messages.length - 1];
+      if (lastUserMessage.role === 'user') {
+        setIsLoading(true);
+        setError(null);
+        
+        try {
+          const response = await aiService.getChatResponse(taskText, messages);
+          setMessages([...messages, { role: 'assistant', content: response }]);
+          setRetryCount(0);
+        } catch (error) {
+          console.error('Retry failed:', error);
+          setError('Retry failed. Please try again.');
+          setRetryCount(prev => prev + 1);
+        } finally {
+          setIsLoading(false);
+        }
+      }
     }
   };
 
@@ -364,6 +379,7 @@ const ChatbotInterface = ({ taskText, isOpen, onClose }) => {
               </div>
             </div>
           ))}
+          
           {isLoading && (
             <div className="flex justify-start">
               <div className="bg-gray-700 p-3 rounded-lg flex items-center gap-2">
@@ -376,6 +392,24 @@ const ChatbotInterface = ({ taskText, isOpen, onClose }) => {
               </div>
             </div>
           )}
+
+          {error && (
+            <div className="flex justify-start">
+              <div className="bg-red-900/50 border border-red-700 p-3 rounded-lg flex items-center gap-2 text-red-200">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm">{error}</span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRetry}
+                  className="ml-2 h-6 px-2 text-red-200 hover:text-white hover:bg-red-800"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  Retry
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSendMessage} className="flex gap-2 mt-4">
@@ -383,7 +417,7 @@ const ChatbotInterface = ({ taskText, isOpen, onClose }) => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             placeholder="Ask me anything about this task..."
-            className="flex-1 bg-gray-800 border-gray-700 text-white"
+            className="flex-1 bg-gray-800 border-gray-700 text-white placeholder-gray-400"
             disabled={isLoading}
           />
           <Button 
@@ -391,7 +425,7 @@ const ChatbotInterface = ({ taskText, isOpen, onClose }) => {
             disabled={isLoading || !inputMessage.trim()}
             className="bg-blue-600 hover:bg-blue-700"
           >
-            <Send className="h-4 w-4" />
+            {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
           </Button>
         </form>
       </DialogContent>
