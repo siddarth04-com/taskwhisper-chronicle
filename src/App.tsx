@@ -1,33 +1,758 @@
 
+import React, { createContext, useState, useEffect, useContext } from "react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { v4 as uuidv4 } from "uuid";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import SignUp from "./pages/SignUp";
-import Login from "./pages/Login";
+import { useToast } from "@/hooks/use-toast";
+import { 
+  Trash2, 
+  CheckCircle2, 
+  Circle, 
+  Plus, 
+  X, 
+  Calendar as CalendarIcon,
+  Loader2,
+  HelpCircle,
+  Lightbulb,
+  MessageSquare,
+  ExternalLink
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+
+// Types
+interface Step {
+  id: string;
+  text: string;
+  completed: boolean;
+}
+
+interface Todo {
+  id: string;
+  text: string;
+  completed: boolean;
+  tag?: string;
+  createdAt: string;
+  activity: "work" | "personal" | "health" | "other";
+  steps: Step[];
+}
+
+// AI Service
+const OPENAI_API_KEY = "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";
+
+const aiService = {
+  async suggestCategory(text: string): Promise<Todo['activity']> {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'system',
+            content: 'You are a task categorization assistant. Categorize the given task into one of these categories: work, personal, health, other. Respond with just the category name in lowercase.'
+          }, {
+            role: 'user',
+            content: text
+          }],
+          max_tokens: 10,
+        }),
+      });
+
+      if (!response.ok) {
+        return 'other';
+      }
+      
+      const data = await response.json();
+      const category = data.choices[0].message.content.trim().toLowerCase();
+      
+      if (['work', 'personal', 'health', 'other'].includes(category)) {
+        return category as Todo['activity'];
+      }
+      return 'other';
+    } catch (error) {
+      console.error('Error suggesting category:', error);
+      return 'other';
+    }
+  },
+
+  async suggestSteps(text: string): Promise<string[]> {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'system',
+            content: 'You are a task breakdown assistant. Break down the given task into 2-4 concrete steps. Respond with just the steps, one per line.'
+          }, {
+            role: 'user',
+            content: text
+          }],
+          max_tokens: 150,
+        }),
+      });
+
+      if (!response.ok) {
+        return [];
+      }
+      
+      const data = await response.json();
+      
+      return data.choices[0].message.content
+        .split('\n')
+        .map((step: string) => step.trim())
+        .filter((step: string) => step.length > 0);
+    } catch (error) {
+      console.error('Error suggesting steps:', error);
+      return [];
+    }
+  },
+
+  async getTaskHelp(taskText: string): Promise<{
+    suggestions: string[];
+    questions: string[];
+    resources: { title: string; link?: string; description?: string; }[];
+  }> {
+    try {
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{
+            role: 'system',
+            content: `You are a helpful assistant for people working on tasks. For the given task, generate:
+            1. 2-3 helpful suggestions related to completing the task
+            2. 2-3 reflective questions that might help the user think about the task better
+            3. 2-4 resources (websites, apps, books, podcasts) that would be useful for the task
+            
+            Format your response as a JSON object with three properties: suggestions (array of strings), questions (array of strings), and resources (array of objects with title, link (optional), and description (optional) properties).`
+          }, {
+            role: 'user',
+            content: `I'm working on this task: "${taskText}". Please provide suggestions, questions, and resources.`
+          }],
+          max_tokens: 500,
+          response_format: { type: "json_object" }
+        }),
+      });
+
+      if (!response.ok) {
+        return {
+          suggestions: ["Error getting AI suggestions. Please try again later."],
+          questions: [],
+          resources: [],
+        };
+      }
+      
+      const data = await response.json();
+      
+      try {
+        const content = JSON.parse(data.choices[0].message.content);
+        return {
+          suggestions: content.suggestions || [],
+          questions: content.questions || [],
+          resources: content.resources || [],
+        };
+      } catch (parseError) {
+        return {
+          suggestions: ["AI provided a response but it wasn't in the expected format."],
+          questions: [],
+          resources: [],
+        };
+      }
+    } catch (error) {
+      console.error('Error getting task help:', error);
+      return {
+        suggestions: ["Error processing AI suggestions. Please try again later."],
+        questions: [],
+        resources: [],
+      };
+    }
+  }
+};
+
+// Context
+interface TodoContextType {
+  todos: Todo[];
+  addTodo: (text: string, activity: string, steps?: string[]) => void;
+  deleteTodo: (id: string) => void;
+  toggleTodo: (id: string) => void;
+  addStep: (todoId: string, stepText: string) => void;
+  toggleStep: (todoId: string, stepId: string) => void;
+  deleteStep: (todoId: string, stepId: string) => void;
+}
+
+const TodoContext = createContext<TodoContextType>({
+  todos: [],
+  addTodo: () => {},
+  deleteTodo: () => {},
+  toggleTodo: () => {},
+  addStep: () => {},
+  toggleStep: () => {},
+  deleteStep: () => {},
+});
+
+const useTodo = (): TodoContextType => useContext(TodoContext);
+
+// Components
+const TodoInput = ({ onAdd }: { onAdd: (text: string, activity: string, steps?: string[]) => void }) => {
+  const [text, setText] = useState("");
+  const [activity, setActivity] = useState("other");
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (text.trim()) {
+      setIsLoading(true);
+      try {
+        let suggestedCategory = activity;
+        let suggestedSteps: string[] = [];
+        
+        try {
+          suggestedCategory = await aiService.suggestCategory(text);
+        } catch (categoryError) {
+          console.error('Error suggesting category:', categoryError);
+        }
+        
+        try {
+          suggestedSteps = await aiService.suggestSteps(text);
+        } catch (stepsError) {
+          console.error('Error suggesting steps:', stepsError);
+        }
+        
+        onAdd(text, suggestedCategory, suggestedSteps);
+        
+        if (suggestedSteps.length > 0) {
+          toast({
+            description: `AI added ${suggestedSteps.length} suggested steps to your task`,
+            duration: 3000,
+          });
+        }
+        
+        if (suggestedCategory !== activity && suggestedCategory !== "other") {
+          toast({
+            description: `AI suggested category: ${suggestedCategory}`,
+            duration: 3000,
+          });
+        }
+      } catch (error) {
+        console.error('Error processing AI suggestions:', error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to get AI suggestions. Adding task with selected category.",
+          duration: 3000,
+        });
+        onAdd(text, activity);
+      } finally {
+        setIsLoading(false);
+        setText("");
+      }
+    }
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex gap-2 mb-6">
+      <Input
+        type="text"
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Add a new todo..."
+        className="flex-1"
+      />
+      <Select value={activity} onValueChange={setActivity}>
+        <SelectTrigger className="w-[150px]">
+          <SelectValue placeholder="Activity" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="work">Work</SelectItem>
+          <SelectItem value="personal">Personal</SelectItem>
+          <SelectItem value="health">Health</SelectItem>
+          <SelectItem value="other">Other</SelectItem>
+        </SelectContent>
+      </Select>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Add"}
+      </Button>
+    </form>
+  );
+};
+
+const TaskHelp = ({ taskText }: { taskText: string }) => {
+  const [help, setHelp] = useState<{
+    suggestions: string[];
+    questions: string[];
+    resources: { title: string; link?: string; description?: string; }[];
+  } | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+
+  const fetchHelp = async () => {
+    setIsLoading(true);
+    try {
+      const helpData = await aiService.getTaskHelp(taskText);
+      setHelp(helpData);
+    } catch (error) {
+      console.error('Error fetching task help:', error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to get AI help. Please try again.",
+        duration: 3000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <Sheet>
+      <SheetTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-blue-600 hover:text-blue-800"
+          onClick={fetchHelp}
+        >
+          <HelpCircle className="h-4 w-4 mr-1" />
+          Get AI Help
+        </Button>
+      </SheetTrigger>
+      <SheetContent className="w-[400px] sm:w-[540px]">
+        <SheetHeader>
+          <SheetTitle>AI Task Help</SheetTitle>
+          <SheetDescription>
+            Get suggestions, questions, and resources for: "{taskText}"
+          </SheetDescription>
+        </SheetHeader>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : help ? (
+          <div className="mt-6 space-y-6">
+            {help.suggestions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <Lightbulb className="h-4 w-4 text-yellow-500" />
+                  <h3 className="font-semibold">Suggestions</h3>
+                </div>
+                <ul className="space-y-2">
+                  {help.suggestions.map((suggestion, index) => (
+                    <li key={index} className="text-sm text-gray-700 pl-4 border-l-2 border-yellow-200">
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {help.questions.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <MessageSquare className="h-4 w-4 text-blue-500" />
+                  <h3 className="font-semibold">Questions to Consider</h3>
+                </div>
+                <ul className="space-y-2">
+                  {help.questions.map((question, index) => (
+                    <li key={index} className="text-sm text-gray-700 pl-4 border-l-2 border-blue-200">
+                      {question}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {help.resources.length > 0 && (
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <ExternalLink className="h-4 w-4 text-green-500" />
+                  <h3 className="font-semibold">Helpful Resources</h3>
+                </div>
+                <ul className="space-y-3">
+                  {help.resources.map((resource, index) => (
+                    <li key={index} className="text-sm pl-4 border-l-2 border-green-200">
+                      <div className="font-medium text-gray-900">{resource.title}</div>
+                      {resource.description && (
+                        <div className="text-gray-600 mt-1">{resource.description}</div>
+                      )}
+                      {resource.link && (
+                        <a
+                          href={resource.link}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-blue-600 hover:underline text-xs mt-1 inline-block"
+                        >
+                          Visit resource →
+                        </a>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-center py-8 text-gray-500">
+            Click "Get AI Help" to fetch suggestions
+          </div>
+        )}
+      </SheetContent>
+    </Sheet>
+  );
+};
+
+const TodoItem = ({ todo, onDelete, onToggle }: {
+  todo: Todo;
+  onDelete: (id: string) => void;
+  onToggle: (id: string) => void;
+}) => {
+  const [newStep, setNewStep] = useState("");
+  const [showStepInput, setShowStepInput] = useState(false);
+  const { addStep, toggleStep, deleteStep } = useTodo();
+
+  const handleAddStep = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newStep.trim()) {
+      addStep(todo.id, newStep.trim());
+      setNewStep("");
+      setShowStepInput(false);
+    }
+  };
+
+  const steps = todo.steps || [];
+
+  return (
+    <div
+      className={cn(
+        "group flex flex-col gap-3 rounded-lg border p-4 transition-all hover:border-blue-300",
+        "animate-fadeIn",
+        todo.completed && "bg-gray-50"
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <button
+          onClick={() => onToggle(todo.id)}
+          className="flex items-center justify-center transition-colors"
+        >
+          {todo.completed ? (
+            <CheckCircle2 className="h-6 w-6 text-green-500" />
+          ) : (
+            <Circle className="h-6 w-6 text-gray-400 hover:text-blue-500" />
+          )}
+        </button>
+        <div className="flex-1 space-y-1">
+          <span
+            className={cn(
+              "block text-lg transition-all",
+              todo.completed && "text-gray-400 line-through"
+            )}
+          >
+            {todo.text}
+          </span>
+          <span className="text-sm text-gray-500">
+            Added {new Date(todo.createdAt).toLocaleDateString()}
+          </span>
+        </div>
+        {todo.activity && (
+          <span 
+            className={cn(
+              "rounded-full px-3 py-1 text-sm",
+              {
+                'bg-blue-100 text-blue-700': todo.activity === 'work',
+                'bg-purple-100 text-purple-700': todo.activity === 'personal',
+                'bg-green-100 text-green-700': todo.activity === 'health',
+                'bg-gray-100 text-gray-700': todo.activity === 'other'
+              }
+            )}
+          >
+            {todo.activity}
+          </span>
+        )}
+        <button
+          onClick={() => onDelete(todo.id)}
+          className="opacity-0 transition-opacity group-hover:opacity-100"
+        >
+          <Trash2 className="h-5 w-5 text-red-500" />
+        </button>
+      </div>
+
+      <div className="ml-8 space-y-2">
+        {steps.map((step) => (
+          <div key={step.id} className="flex items-center gap-2">
+            <button
+              onClick={() => toggleStep(todo.id, step.id)}
+              className="flex items-center justify-center transition-colors"
+            >
+              {step.completed ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <Circle className="h-4 w-4 text-gray-400 hover:text-blue-500" />
+              )}
+            </button>
+            <span
+              className={cn(
+                "text-sm",
+                step.completed && "text-gray-400 line-through"
+              )}
+            >
+              {step.text}
+            </span>
+            <button
+              onClick={() => deleteStep(todo.id, step.id)}
+              className="ml-auto opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              <X className="h-4 w-4 text-red-500" />
+            </button>
+          </div>
+        ))}
+
+        {showStepInput ? (
+          <form onSubmit={handleAddStep} className="flex items-center gap-2">
+            <Input
+              type="text"
+              value={newStep}
+              onChange={(e) => setNewStep(e.target.value)}
+              placeholder="Add a step..."
+              className="h-8 text-sm"
+              autoFocus
+            />
+            <button
+              type="button"
+              onClick={() => setShowStepInput(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </form>
+        ) : (
+          <button
+            onClick={() => setShowStepInput(true)}
+            className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
+          >
+            <Plus className="h-4 w-4" /> Add step
+          </button>
+        )}
+      </div>
+
+      {!todo.completed && <TaskHelp taskText={todo.text} />}
+    </div>
+  );
+};
+
+const TodoCalendar = () => {
+  const { todos } = useTodo();
+  const todaysTodos = todos.filter(todo => {
+    const todoDate = new Date(todo.createdAt).toDateString();
+    const today = new Date().toDateString();
+    return todoDate === today;
+  });
+
+  return (
+    <div className="rounded-lg border p-4">
+      <div className="flex items-center gap-2 mb-4">
+        <CalendarIcon className="h-5 w-5 text-blue-500" />
+        <h2 className="text-xl font-semibold">Today's Tasks</h2>
+      </div>
+      <div className="space-y-2">
+        {todaysTodos.length === 0 ? (
+          <p className="text-gray-500 text-sm">No tasks for today</p>
+        ) : (
+          todaysTodos.map((todo) => (
+            <div key={todo.id} className="flex items-center gap-2 text-sm">
+              {todo.completed ? (
+                <CheckCircle2 className="h-4 w-4 text-green-500" />
+              ) : (
+                <Circle className="h-4 w-4 text-gray-400" />
+              )}
+              <span className={cn(todo.completed && "line-through text-gray-400")}>
+                {todo.text}
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
+
+const TodoProvider = ({ children }: { children: React.ReactNode }) => {
+  const [todos, setTodos] = useState<Todo[]>(() => {
+    const savedTodos = localStorage.getItem("todos");
+    return savedTodos ? JSON.parse(savedTodos) : [];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("todos", JSON.stringify(todos));
+  }, [todos]);
+
+  const addTodo = (text: string, activity: string, steps: string[] = []) => {
+    const newTodo: Todo = {
+      id: uuidv4(),
+      text,
+      completed: false,
+      createdAt: new Date().toISOString(),
+      activity: activity as "work" | "personal" | "health" | "other",
+      steps: steps.map((stepText) => ({
+        id: uuidv4(),
+        text: stepText,
+        completed: false
+      })),
+    };
+    setTodos([newTodo, ...todos]);
+  };
+
+  const deleteTodo = (id: string) => {
+    setTodos(todos.filter(todo => todo.id !== id));
+  };
+
+  const toggleTodo = (id: string) => {
+    setTodos(
+      todos.map(todo =>
+        todo.id === id ? { ...todo, completed: !todo.completed } : todo
+      )
+    );
+  };
+
+  const addStep = (todoId: string, stepText: string) => {
+    setTodos(
+      todos.map(todo => {
+        if (todo.id === todoId) {
+          const newStep: Step = {
+            id: uuidv4(),
+            text: stepText,
+            completed: false
+          };
+          return {
+            ...todo,
+            steps: [...(todo.steps || []), newStep]
+          };
+        }
+        return todo;
+      })
+    );
+  };
+
+  const toggleStep = (todoId: string, stepId: string) => {
+    setTodos(
+      todos.map(todo => {
+        if (todo.id === todoId && todo.steps) {
+          return {
+            ...todo,
+            steps: todo.steps.map(step =>
+              step.id === stepId ? { ...step, completed: !step.completed } : step
+            )
+          };
+        }
+        return todo;
+      })
+    );
+  };
+
+  const deleteStep = (todoId: string, stepId: string) => {
+    setTodos(
+      todos.map(todo => {
+        if (todo.id === todoId && todo.steps) {
+          return {
+            ...todo,
+            steps: todo.steps.filter(step => step.id !== stepId)
+          };
+        }
+        return todo;
+      })
+    );
+  };
+
+  return (
+    <TodoContext.Provider
+      value={{
+        todos,
+        addTodo,
+        deleteTodo,
+        toggleTodo,
+        addStep,
+        toggleStep,
+        deleteStep
+      }}
+    >
+      {children}
+    </TodoContext.Provider>
+  );
+};
+
+const TodoList = () => {
+  const { todos, addTodo, deleteTodo, toggleTodo } = useTodo();
+
+  return (
+    <div>
+      <TodoInput onAdd={addTodo} />
+      <div className="space-y-4">
+        {todos.length === 0 ? (
+          <div className="text-center text-gray-500">
+            <p className="text-xl">No todos yet!</p>
+            <p>Add a new todo to get started</p>
+          </div>
+        ) : (
+          todos.map((todo) => (
+            <TodoItem
+              key={todo.id}
+              todo={todo}
+              onDelete={deleteTodo}
+              onToggle={toggleTodo}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+};
 
 const queryClient = new QueryClient();
 
-// The main App component that sets up providers and routing
 const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/login" element={<Login />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </TooltipProvider>
-      </BrowserRouter>
+      <TooltipProvider>
+        <TodoProvider>
+          <div className="min-h-screen bg-gray-50 p-8">
+            <div className="mx-auto max-w-6xl">
+              <div className="flex justify-between items-center mb-8">
+                <h1 className="text-4xl font-bold text-blue-600">
+                  Todo List
+                </h1>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="md:col-span-2">
+                  <TodoList />
+                </div>
+                <div>
+                  <TodoCalendar />
+                </div>
+              </div>
+            </div>
+          </div>
+        </TodoProvider>
+        <Toaster />
+        <Sonner />
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };
